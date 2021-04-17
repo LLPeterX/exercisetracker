@@ -4,11 +4,13 @@ const cors = require('cors');
 require('dotenv').config();
 const mongoose = require('mongoose');
 
+const ERR_USER_NOTFUND = {error: 'user not found'};
+
 app.use(cors());
 app.use("/public", express.static(__dirname + '/public'));
 app.use(express.urlencoded({ extended: false }));
 
-// logging for debugging
+// log for debugging
 /*
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);
@@ -68,11 +70,11 @@ function getAllUsers(req, res) {
       res.json(userList);
     });
 }
-// add exercises
+// add exercises = FAIL
 function addExercise(req, res) {
   let { userId, description, duration, date } = req.body;
   if(!userId) {
-    userId = req.params.userId;
+    userId = req.params.userId; 
   }
   if (!date || date.length != 10) {
     date = defaultDate();
@@ -85,17 +87,22 @@ function addExercise(req, res) {
   console.log(' >> update params:', req.params);
   console.log(' >> update body:', req.body);
   let exObj = { description, duration, date }; // exrecise object to add
-  User.findOneAndUpdate(
-    { _id: userId }, // search 
-    { $push: { exercices: exObj } }, // update
-    { new: true }, // options
-    function (err, updatedUser) { // callback
-      if (err) {
-        res.json({ error: 'user not found' });
-      } else {
-        console.log(' >>> updated user:',updatedUser);
-        res.json(updatedUser);
+  User.findByIdAndUpdate(
+    userId,
+    {$push: { exercices: exObj } },
+    {new: true},
+    function (err, updatedUser) {
+      if(err) {
+        return console.log('update error:',err);
       }
+      let resp = {};
+      resp._id = updatedUser.id;
+      resp.username = updatedUser.username;
+      // add added excercice field
+      resp.description = exObj.description;
+      resp.duration = exObj.duration;
+      resp.date = exObj.date || defaultDate();
+      resp.json(resp);
     }
   );
 }
@@ -110,12 +117,10 @@ function getLog(req, res) {
     if (err || !user) {
       return console.log('getLog() error:', err);
     }
-    console.log('found user:', user._id);
+    console.log(' >>log: found user:', user._id);
     try {
       let ex = user.exercies.filter(e => e.date >= dFrom && e.date <= dTo)
         .map(e => ({description: e.description, duration: e.duration, date: e.date}));
-      console.log(`ex len=${ex.length} usr ex len=${user.exercies.length}`);
-      console.log('ex:',ex);
       let logObj = {};
       logObj.count = ex.length;
       logObj._id = user._id;
@@ -124,25 +129,23 @@ function getLog(req, res) {
       console.log('return user:',logObj);
       res.json(logObj);
     } catch (e) {
-      res.json({ error: 'user not found' });
+      res.json(ERR_USER_NOTFUND);
     }
   });
 }
 
-
-// find: db.users.find({awards: {$elemMatch: {award:'National Medal', year:1975}}})
 // ------------------- main API ------------------------
-app.get('/', (req, res) => {
-  console.log('sending index.html');
-  res.sendFile(__dirname + '/views/index.html');
-});
+app.get('/', (req, res) => res.sendFile(__dirname + '/views/index.html');
 // в index.html и в задании разные URL, так что оба варианта
-app.post("/api/users", addUser);
-app.post("/api/exercise/new-user", addUser);
-app.get("/api/users", getAllUsers);
-app.get("/api/exercise/users", getAllUsers);
-app.post("/api/exercise/add", addExercise);
-app.post("/api/users/:userId/excercices", addExercise);
+app.post("/api/users", addUser); // в задании
+app.post("/api/exercise/new-user", addUser); // в html
+
+app.get ("/api/users", getAllUsers); // в задании
+app.get ("/api/exercise/users", getAllUsers); // на всякий случай
+
+app.post("/api/exercise/add", addExercise); // не работает, т.к. приходит говно в виде POST /api/users/607acd7ff7b903021aade681/exercises
+app.post("/api/users/:userId/excercices", addExercise); // для post() параметры не работают - х.з. как сделать
+
 app.get("/api/exercises/:userId/log", getLog);
 // ------------------- Listener ------------------------
 const listener = app.listen(process.env.PORT || 3000, () => {
