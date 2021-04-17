@@ -9,6 +9,7 @@ app.use("/public", express.static(__dirname + '/public'));
 app.use(express.urlencoded({ extended: false }));
 
 // logging for debugging
+/*
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.path}`);
   if (req.method === 'POST') {
@@ -18,24 +19,15 @@ app.use((req, res, next) => {
   }
   next();
 });
-
+*/
 // ---------------------- MongoDB ------------------------------
 mongoose.connect(process.env.DB_URI, { useNewUrlParser: true, useUnifiedTopology: true, useCreateIndex: true })
   .catch(err => {
     console.error('Cannot connect to mongoDB', err);
   });
 
-// ниже переработать! 
-// длбавить массив exercies c {description, duration, date}
-// дата в YYYY-MM-DD
-
 const defaultDate = () => new Date().toISOString().slice(0, 10);
 
-// const exSchema = mongoose.Schema({
-//    description: { type: String, default: null },
-//    duration: { type: Number, default: 0 },
-//    date: { type: String, default: defaultDate()}
-// });
 const userSchema = mongoose.Schema(
   {
     username: { type: String, required: true, unique: false },
@@ -46,17 +38,12 @@ const userSchema = mongoose.Schema(
         date: { type: String, required: false }
       }
     ]
-    //exercies: { type: [exSchema], default: undefined}
-    // description: { type: String, default: null },
-    // duration: { type: Number, default: 0 },
-    // date: { type: String, default: null }
   }
 );
 const User = mongoose.model('Users', userSchema);
 
 // create and save user
 function addUser(req, res) {
-  console.log('addUser() body:', req.body);
   let username = req.body.username;
   if (!username || username.length === 0) {
     res.json({ error: "Invalid username" });
@@ -72,7 +59,6 @@ function addUser(req, res) {
 
 // get all users
 function getAllUsers(req, res) {
-  console.log('get all users');
   User.find()
     .select('username _id')
     .exec(function (err, userList) {
@@ -85,6 +71,9 @@ function getAllUsers(req, res) {
 // add exercises
 function addExercise(req, res) {
   let { userId, description, duration, date } = req.body;
+  if(!userId) {
+    userId = req.params.userId;
+  }
   if (!date || date.length != 10) {
     date = defaultDate();
   }
@@ -93,15 +82,18 @@ function addExercise(req, res) {
   } else {
     duration = Number(duration);
   }
+  console.log(' >> update params:', req.params);
+  console.log(' >> update body:', req.body);
   let exObj = { description, duration, date }; // exrecise object to add
   User.findOneAndUpdate(
     { _id: userId }, // search 
-    { $push: { exercies: exObj } }, // update
+    { $push: { exercices: exObj } }, // update
     { new: true }, // options
     function (err, updatedUser) { // callback
       if (err) {
         res.json({ error: 'user not found' });
       } else {
+        console.log(' >>> updated user:',updatedUser);
         res.json(updatedUser);
       }
     }
@@ -150,7 +142,8 @@ app.post("/api/exercise/new-user", addUser);
 app.get("/api/users", getAllUsers);
 app.get("/api/exercise/users", getAllUsers);
 app.post("/api/exercise/add", addExercise);
-app.get("/api/exercise/:userId/log", getLog);
+app.post("/api/users/:userId/excercices", addExercise);
+app.get("/api/exercises/:userId/log", getLog);
 // ------------------- Listener ------------------------
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
