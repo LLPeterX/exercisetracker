@@ -29,7 +29,7 @@ mongoose.connect(process.env.DB_URI, { useNewUrlParser: true, useUnifiedTopology
 // длбавить массив exercies c {description, duration, date}
 // дата в YYYY-MM-DD
 
-const defaultDate = new Date().toISOString().slice(0, 10);
+const defaultDate = () => new Date().toISOString().slice(0, 10);
 
 // const exSchema = mongoose.Schema({
 //    description: { type: String, default: null },
@@ -110,19 +110,31 @@ function addExercise(req, res) {
 
 // get log by _id
 function getLog(req, res) {
+  console.log('log req params:', req.params);
   let userId = req.params.userId;
-  let dFrom = req.params.from || '0000-00-00';
-  let dTo = req.params.to || '9999-99-99';
-  User.find({_id: userId})
-    .select('description duration date')
-    .exec(function (err, user) {
-      if (err) {
-        return console.log('getLog() error:', err);
-      }
-      let ex = user.exercies.filter(str => str>=dFrom && str<=dTo);
-      user.exercies = ex;
-      res.json(user);
-    });
+  let dFrom = req.query.from || '0000-00-00';
+  let dTo = req.query.to || '9999-99-99';
+  User.findOne({ _id: userId }, function (err, user) {
+    if (err || !user) {
+      return console.log('getLog() error:', err);
+    }
+    console.log('found user:', user._id);
+    try {
+      let ex = user.exercies.filter(e => e.date >= dFrom && e.date <= dTo)
+        .map(e => ({description: e.description, duration: e.duration, date: e.date}));
+      console.log(`ex len=${ex.length} usr ex len=${user.exercies.length}`);
+      console.log('ex:',ex);
+      let logObj = {};
+      logObj.count = ex.length;
+      logObj._id = user._id;
+      logObj.username = user.username;
+      logObj.log = ex;
+      console.log('return user:',logObj);
+      res.json(logObj);
+    } catch (e) {
+      res.json({ error: 'user not found' });
+    }
+  });
 }
 
 
@@ -138,7 +150,7 @@ app.post("/api/exercise/new-user", addUser);
 app.get("/api/users", getAllUsers);
 app.get("/api/exercise/users", getAllUsers);
 app.post("/api/exercise/add", addExercise);
-app.get("/api/exercise/log", getLog);
+app.get("/api/exercise/:userId/log", getLog);
 // ------------------- Listener ------------------------
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
