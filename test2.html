@@ -1,0 +1,43 @@
++<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <h1>Test</h1>
+  <table>
+    <tr id="monday_time">
+      <!-- <script>
+        for(let i=1; i<=5; i++) {
+          document.write(`<td>${i}</td>`);
+        }
+      </script> -->
+    </tr>
+    </table>
+    <script>
+      const time_gaps = [ 'xxx', 'yyyy', 'zzz'];
+      function labelTimeCreation(tr_id){
+          var tr = document.getElementById(tr_id);
+          time_gaps.forEach(function(item, i) {
+            tr.innerHTML += `<td id="1_${i+1}" class="time_day"><input type="checkbox" name="1_${i+1}" checked>${item}</td>`;
+            // let td = document.createElement("td");
+            // td.id=`1_${i+1}`;
+            // td.classList.add("time_day");
+            // let inp = document.createElement("input");
+            // inp.type ="checkbox";
+            // inp.name = `1_${i+1}`;
+            // inp.value = `${item}`;
+            // inp.checked = true;
+            // //inp.hidden = true;
+            // td.appendChild(inp);
+            // tr.append(td);
+          });
+      }
+
+      labelTimeCreation("monday_time");
+  </script>
+</body>
+</html>
