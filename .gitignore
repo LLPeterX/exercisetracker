@@ -1,3 +1,4 @@
 .env
 .env_freecodecamp
+.env_local
 node_modules

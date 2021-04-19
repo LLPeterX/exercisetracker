@@ -6,11 +6,14 @@ const mongoose = require('mongoose');
 
 const ERR_USER_NOTFUND = {error: 'user not found'};
 
+mongoose.set('useFindAndModify', false);
+
 app.use(cors());
 app.use("/public", express.static(__dirname + '/public'));
 app.use(express.urlencoded({ extended: false }));
 
-// log all requests for debugging
+
+// log for debugging
 /*
 app.use((req, res, next) => {
   console.log(`LOG: ${req.method} ${req.path}`);
@@ -29,7 +32,6 @@ mongoose.connect(process.env.DB_URI, { useNewUrlParser: true, useUnifiedTopology
   });
 
 const defaultDate = () => new Date().toISOString().slice(0, 10);
-//const utcDate = (sd) => new Date(sd).toUTCString().replace(',','').slice(0,15); // 'Mon Jan 01 1990'
 
 const userSchema = mongoose.Schema(
   {
@@ -71,7 +73,6 @@ function getAllUsers(req, res) {
       res.json(userList);
     });
 }
-// add exercises = FAIL
 /*
 You can POST to /api/users/:_id/exercises with form data 'description', 'duration', and optionally 'date'. 
 If no date is supplied, the current date will be used. 
@@ -84,10 +85,6 @@ function addExercise(req, res) {
     duration: +req.body.duration,
     date: req.body.date || defaultDate()
   }; // exrecise object to add
-  console.log(' >> URL:',req.url); // sample: /api/users/607d75bde17ce700fff750fc/exercises
-  console.log(' >> update params:', req.params);
-  console.log(' >> update body:', req.body);
-  console.log(' >> exObj:', exObj);
   User.findByIdAndUpdate(
     userId, // find user by _id
     {$push: { exercices: exObj } }, // add exObj to exercices[]
@@ -97,32 +94,44 @@ function addExercise(req, res) {
         return console.log('update error:',err);
       }
       let returnObj = {
-        _id: updatedUser.id,
         username: updatedUser.username,
         description: exObj.description,
         duration: exObj.duration,
-        date: exObj.date
+       _id: userId,
+        date: new Date(exObj.date).toDateString()
       };
-      console.log(' >> UPDATED USER:',updatedUser);
-      console.log(' >> ANSWER:',returnObj);
       res.json(returnObj);
     }
   );
 }
 
-// get log by _id (OK)
+// get Logs
 function getLog(req, res) {
-  let userId = req.params.userId;
+  let userId = req.params["_id"];
   let dFrom = req.query.from || '0000-00-00';
   let dTo = req.query.to || '9999-99-99';
-  let limit = +req.query.limit || 9999;
+  let limit = +req.query.limit || 10000;
   User.findOne({ _id: userId }, function (err, user) {
-    if (err || !user) {
+    if (err) {
       return console.log('getLog() error:', err);
     }
     try {
+      let e1 = user.exercices.filter(e => e.date >= dFrom && e.date <= dTo);
+      let e2 = e1.map(e => (
+          {
+            description: e.description, 
+            duration: e.duration, 
+            date: e.date //new Date(e.date).toDateString()}
+          }
+          ));
       let ex = user.exercices.filter(e => e.date >= dFrom && e.date <= dTo)
-        .map(e => ({description: e.description, duration: e.duration, date: e.date}))
+        .map(e => (
+          {
+            description: e.description, 
+            duration: e.duration, 
+            date: e.date //new Date(e.date).toDateString()}
+          }
+          ))
         .slice(0,limit);
       let logObj = {};
       logObj.count = ex.length;
@@ -131,6 +140,7 @@ function getLog(req, res) {
       logObj.log = ex;
       res.json(logObj);
     } catch (e) {
+      console.log(e);
       res.json(ERR_USER_NOTFUND);
     }
   });
@@ -138,18 +148,18 @@ function getLog(req, res) {
 
 // ------------------- main API ------------------------
 app.get('/', (req, res) => res.sendFile(__dirname + '/views/index.html'));
-// different endpoint in index.html and task description, so both 
-app.post("/api/users", addUser); // task
-app.post("/api/exercise/new-user", addUser); // index.html
+// в index.html и в задании разные URL, так что оба варианта
+app.post("/api/users", addUser); // в задании
+app.post("/api/exercise/new-user", addUser); // в html
 
-app.get ("/api/users", getAllUsers); // task
-app.get ("/api/exercise/users", getAllUsers); // just ion case
+app.get ("/api/users", getAllUsers); // в задании
+app.get ("/api/exercise/users", getAllUsers); // на всякий случай
 
-app.post("/api/exercise/add", addExercise); // OK
-app.all("/api/users/:userId/exercises", addExercise); // fail
+app.post("/api/exercise/add", addExercise); // не работает, т.к. приходит говно в виде POST /api/users/607acd7ff7b903021aade681/exercises
+app.all("/api/users/:userId/exercises", addExercise); // для post() параметры не работают - х.з. как сделать
 
-app.get("/api/exercises/:userId/log", getLog); // ok
-app.get("/api/users/:userId/logs", getLog); // ok
+app.get("/api/exercises/:userId/log", getLog);
+app.get("/api/users/:_id/logs", getLog);
 // ------------------- Listener ------------------------
 const listener = app.listen(process.env.PORT || 3000, () => {
   console.log('Your app is listening on port ' + listener.address().port);
